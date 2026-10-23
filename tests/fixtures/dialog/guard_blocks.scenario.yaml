@@ -1,0 +1,11 @@
+name: spend-screen guard suppresses every macro
+macros: macros.yaml
+frames: {dir: frames, fps: 0.2}
+context: {scene: purchase_confirm}
+react:
+  - {input: a, advance: 1}
+duration_s: 3
+stop_when_all_done: false
+expect:
+  - never_fires: dialog_advance
+  - guarded: {guard: spend_screen, at_least: 30, at_most: 40}   # ticks at the 12 Hz poll rate, never spins

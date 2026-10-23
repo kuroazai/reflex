@@ -1,0 +1,21 @@
+# Block when a red warning appears.
+#
+# Checks one pixel where the game draws its attack warning. When it turns red,
+# press the block button with a short hold. Polls at 60 Hz, so the reaction
+# window is about 16 ms. The 0.5 s cooldown stops a warning that stays on
+# screen from spamming the button.
+
+macro:
+  id: block_on_red
+  kind: color_armed_button
+  priority: 90
+  params:
+    color:
+      predicate: color_at
+      xy: [640, 360]
+      hsv_lo: [0, 180, 180]
+      hsv_hi: [10, 255, 255]
+    button: x
+    cooldown_s: 0.5
+    poll_hz: 60.0
+    hold_ms: 30

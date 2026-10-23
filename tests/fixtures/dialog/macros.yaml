@@ -1,0 +1,30 @@
+# Dialog advance, measured on the synthetic frames in frames/ (480x330, built by make_frames.py).
+#   dialog pages: white ratio ~0.93 in the panel, teal border ratio ~0.29
+#   closed box:   white ratio 0.0, teal 0.0
+guards:
+  spend_screen:          # never press anything on a purchase/confirm screen
+    predicate: extras_in
+    key: scene
+    values: [shop, purchase_confirm, banner_pull]
+
+macros:
+  - id: dialog_advance
+    kind: dialog_advance_loop
+    priority: 60
+    params:
+      dialog:
+        all_of:
+          - {predicate: region_color_ratio, region: [30, 255, 420, 55], hsv_lo: [0, 0, 200], hsv_hi: [179, 40, 255], ratio_min: 0.7}
+          - {predicate: region_color_ratio, region: [5, 240, 470, 10], hsv_lo: [80, 80, 120], hsv_hi: [100, 255, 255], ratio_min: 0.01}
+      advance_button: a
+      cooldown_ms: 250
+      max_advances: 32
+      poll_hz: 12
+    # A press must change the text (next page) or close the box.
+    expect:
+      kind: any_of
+      within_ms: 700
+      parts:
+        - gone
+        - {kind: changed, region: [30, 255, 420, 55], min_changed_fraction: 0.05}
+    trip_after_unverified: 3

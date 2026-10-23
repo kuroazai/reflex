@@ -1,0 +1,24 @@
+# Advance dialog boxes.
+#
+# Checks one pixel that sits inside the text box whenever a box is open. While
+# it is white, press A every 220 ms until the box closes or 32 presses are
+# spent. Change xy and the colour band to suit your game.
+#
+# Priority 60 keeps it below interaction macros (70) and the anti-stuck
+# watchdog (95), so those win when both want to fire.
+
+macro:
+  id: dialog_advance
+  kind: dialog_advance_loop
+  priority: 60
+  params:
+    dialog:
+      predicate: color_at
+      xy: [120, 384]
+      hsv_lo: [0, 0, 220]
+      hsv_hi: [179, 50, 255]
+    advance_button: a
+    cooldown_ms: 220
+    max_advances: 32
+    poll_hz: 12.0
+    hold_ms: 35

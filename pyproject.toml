@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reflex"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reactive frame-trigger macro engine: armed predicates fire low-latency action sequences when conditions match a screen frame."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,8 +13,11 @@ license = { text = "MIT" }
 dependencies = [
     "numpy>=1.26",
     "opencv-python>=4.9",
-    "loguru>=0.7",
+    "pyyaml>=6.0",
 ]
+
+[project.scripts]
+reflex = "reflex.cli:main"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
@@ -31,4 +34,8 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = ["E501", "SIM105", "SIM108"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider --basetemp=.pytest-tmp"

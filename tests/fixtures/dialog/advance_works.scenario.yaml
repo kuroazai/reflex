@@ -1,0 +1,14 @@
+name: dialog advance pages through the box and stops when it closes
+macros: macros.yaml
+# 5 s per frame: nothing moves unless the reflex presses A (closed loop via react).
+frames: {dir: frames, fps: 0.2}
+react:
+  - {input: a, advance: 1}
+duration_s: 4
+stop_when_all_done: false
+expect:
+  - fires: {macro: dialog_advance, count: 4}         # 4 pages, then the overworld
+  - verified: {macro: dialog_advance, count: 4}
+  - unverified: {macro: dialog_advance, count: 0}
+  - tripped: {macro: dialog_advance, is: false}
+  - first_fire: {macro: dialog_advance, action: [a], frame: 0}

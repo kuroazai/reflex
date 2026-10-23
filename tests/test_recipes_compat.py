@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from reflex import MacroEngine, Match, TriggerSpec
+from reflex import MacroEngine
 from reflex.conditions import sprite_blob
-from reflex.core import FrameView, Region
+from reflex.core import Region
 from reflex.io import RecordingInputSink
-from reflex.recipes import adjacent_sprite_face_talk
-from reflex.recipes.intercept import player_screen_xy_from_relative
+from reflex.recipes import adjacent_sprite_face_talk, player_screen_xy_from_relative
 
 
 class _SequencedFrames:

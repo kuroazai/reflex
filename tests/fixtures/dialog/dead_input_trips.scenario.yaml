@@ -1,0 +1,10 @@
+name: presses that do nothing (lost focus) are caught and the reflex trips
+macros: macros.yaml
+frames: {dir: frames, fps: 0.2}   # no react rules: A presses have no effect
+duration_s: 4.5
+stop_when_all_done: false
+expect:
+  - fires: {macro: dialog_advance, count: 3}
+  - unverified: {macro: dialog_advance, count: 3}
+  - verified: {macro: dialog_advance, count: 0}
+  - tripped: {macro: dialog_advance, is: true}
