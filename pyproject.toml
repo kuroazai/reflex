@@ -29,6 +29,8 @@ ocr = [
     "winrt-Windows.Foundation>=2.0; sys_platform == 'win32'",
     "winrt-Windows.Foundation.Collections>=2.0; sys_platform == 'win32'",
 ]
+mcp = ["mcp>=1.2"]
+all = ["reflex[ocr,mcp]"]
 test = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]

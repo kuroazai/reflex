@@ -73,6 +73,16 @@ def _read_template(p: Path) -> Template:
     return Template(np.ascontiguousarray(img), None, p.name)
 
 
+def is_flat(img: np.ndarray, *, tolerance: float = 4.0) -> bool:
+    """True when an image is (nearly) one colour, so as a template it would match
+    any area of that colour. Measured per channel: a plain red patch is flat even
+    though its red and blue values differ."""
+    if img.size == 0:
+        return True
+    px = img.reshape(-1, img.shape[2] if img.ndim == 3 else 1).astype(np.float32)
+    return float(px.std(axis=0).max()) < tolerance
+
+
 def as_template(t: Template | np.ndarray | str | Path) -> Template:
     if isinstance(t, Template):
         return t

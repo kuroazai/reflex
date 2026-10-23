@@ -379,6 +379,13 @@ def cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from reflex.mcp_server import main as serve
+
+    serve(base_dir=args.base_dir)
+    return 0
+
+
 def cmd_schema(args: argparse.Namespace) -> int:
     doc = schema_doc()
     if args.json:
@@ -510,6 +517,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--crop", type=int, default=48, help="size in pixels of each click image")
     s.add_argument("--max", type=parse_duration, default=3600.0, help="stop recording after this long")
     s.set_defaults(fn=cmd_record)
+
+    s = sub.add_parser("mcp", help="serve reflex's tools to AI agents over MCP (stdio)")
+    s.add_argument("--base-dir", help="where relative template and script paths resolve (default: cwd)")
+    s.set_defaults(fn=cmd_mcp)
 
     s = sub.add_parser("schema", help="every script step and predicate (use --json for agents)")
     s.add_argument("--json", action="store_true")

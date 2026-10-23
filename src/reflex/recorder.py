@@ -28,6 +28,8 @@ from typing import Any
 
 import numpy as np
 
+from reflex.vision import is_flat
+
 WH_KEYBOARD_LL = 13
 WH_MOUSE_LL = 14
 LLKHF_INJECTED = 0x10
@@ -457,7 +459,7 @@ def record_to_file(
         except Exception:  # noqa: BLE001 — a missed crop just means a plain coordinate click
             return
         crop = crop_around(frame, x, y, crop_px)
-        if crop.size == 0 or float(crop.std()) < 4.0:
+        if crop.size == 0 or is_flat(crop):
             return  # flat area: a template would match anywhere, so keep the coordinate
         img_dir.mkdir(parents=True, exist_ok=True)
         p = img_dir / f"click_{len(saved) + 1:03d}.png"
