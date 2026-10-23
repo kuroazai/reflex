@@ -195,7 +195,7 @@ If clicks or keys do nothing with `postmessage`, switch to `sendinput`.
 
 ```bash
 pip install -e ".[all,test]"
-pytest                       # 234 tests; the Windows ones drive real windows the tests create
+pytest                       # 238 tests; the Windows ones drive real windows the tests create
 REFLEX_LIVE_INPUT=1 pytest   # also tests SendInput, which moves your cursor
 ```
 
