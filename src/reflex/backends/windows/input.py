@@ -235,7 +235,9 @@ class PostMessageSink:
 
     Clicks go to the deepest child window under the point, with coordinates
     converted into that child's client area, which is what most UI toolkits
-    expect. Keys go to `key_hwnd` if given, otherwise the top-level window.
+    expect. Keys go to `key_hwnd` if given; otherwise to the control that has
+    keyboard focus inside the target (a text box, an emulator's render view),
+    looked up on every key so it follows focus changes, else the window itself.
     """
 
     capabilities = ALL_CAPS
@@ -254,13 +256,20 @@ class PostMessageSink:
             raise ValueError("PostMessageSink needs a window (Window, hwnd, or title=/process= ...)")
         self.window = resolved
         self.hwnd = resolved.hwnd
-        self.key_hwnd = int(key_hwnd) if key_hwnd else self.hwnd
+        self._fixed_key_hwnd = int(key_hwnd) if key_hwnd else None
         self._sleep = sleep
         self._held = _HeldState()
         self.posted = 0
 
     def target_ok(self) -> bool:
         return bool(w.user32.IsWindow(self.hwnd))
+
+    @property
+    def key_hwnd(self) -> int:
+        if self._fixed_key_hwnd:
+            return self._fixed_key_hwnd
+        focused = focused_child(self.hwnd)
+        return focused or self.hwnd
 
     def _post(self, hwnd: int, msg: int, wparam: int, lparam: int) -> bool:
         ok = bool(w.user32.PostMessageW(hwnd, msg, wparam, ctypes.c_ssize_t(lparam).value))
@@ -291,10 +300,14 @@ class PostMessageSink:
         return self.key_up(button)
 
     def type_text(self, text: str, *, interval_ms: int = 0) -> bool:
+        # Newlines go as the character a text box expects ("\r"), not as an
+        # Enter key press: a posted key only becomes a character when the app
+        # gets to it, so text sent right after would overtake it.
         ok = True
-        for ch in str(text):
-            for unit in _utf16_units(ch):
-                ok = self._post(self.key_hwnd, w.WM_CHAR, unit, 1) and ok
+        target = self.key_hwnd
+        for ch in str(text).replace("\r\n", "\n"):
+            for unit in _utf16_units("\r" if ch == "\n" else ch):
+                ok = self._post(target, w.WM_CHAR, unit, 1) and ok
             if interval_ms:
                 self._sleep(interval_ms / 1000.0)
         return ok
@@ -364,6 +377,23 @@ class PostMessageSink:
         for b in list(self._held.buttons):
             self._held.buttons.discard(b)
             self._post(self.hwnd, _BUTTON_MSGS[b][1], 0, 0)
+
+
+def focused_child(hwnd: int) -> int:
+    """The control with keyboard focus in `hwnd`'s UI thread, if it belongs to hwnd.
+
+    Works while the window is in the background: each UI thread keeps its own
+    focus, whether or not it is the active one.
+    """
+    tid = w.user32.GetWindowThreadProcessId(hwnd, None)
+    info = w.GUITHREADINFO()
+    info.cbSize = ctypes.sizeof(w.GUITHREADINFO)
+    if not tid or not w.user32.GetGUIThreadInfo(tid, ctypes.byref(info)):
+        return 0
+    focus = int(info.hwndFocus or 0)
+    if not focus or focus == hwnd:
+        return 0
+    return focus if int(w.user32.GetAncestor(focus, w.GA_ROOT) or 0) == int(hwnd) else 0
 
 
 def _utf16_units(ch: str) -> list[int]:

@@ -29,6 +29,10 @@ WNDPROC = ctypes.WINFUNCTYPE(w.LRESULT, w.HWND, wintypes.UINT, wintypes.WPARAM, 
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 WS_VISIBLE = 0x10000000
 WS_CHILD = 0x40000000
+WS_BORDER = 0x00800000
+ES_MULTILINE = 0x0004
+WM_GETTEXT = 0x000D
+WM_GETTEXTLENGTH = 0x000E
 CW_USEDEFAULT = -0x80000000
 WM_DESTROY = 0x0002
 WM_PAINT = 0x000F
@@ -101,6 +105,8 @@ w._sig(user32.SetWindowPos, wintypes.BOOL, w.HWND, w.HWND, ctypes.c_int, ctypes.
        wintypes.UINT)
 w._sig(user32.InvalidateRect, wintypes.BOOL, w.HWND, ctypes.POINTER(w.RECT), wintypes.BOOL)
 w._sig(gdi32.CreateSolidBrush, wintypes.HBRUSH, wintypes.COLORREF)
+w._sig(user32.SetFocus, w.HWND, w.HWND)
+w._sig(user32.SendMessageW, w.LRESULT, w.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
 w._sig(kernel32.GetModuleHandleW, wintypes.HMODULE, wintypes.LPCWSTR)
 
 _RECORDED = {
@@ -121,6 +127,8 @@ class TestWindow:
     """A top-level window (left half red) with a child window (right half blue).
 
     `colors` overrides the two colours (BGR), e.g. to tell a covering window apart.
+    `edit=True` puts a standard Windows text box (EDIT control) in the right half
+    instead, focused within its own thread, to test typing into a real control.
 
     `events` is a list of (kind, which, wparam, x, y): which is "parent" or
     "child", x/y are the receiving window's client coordinates for mouse
@@ -131,9 +139,12 @@ class TestWindow:
 
     def __init__(self, *, title: str = "reflex test window", size: tuple[int, int] = (400, 300),
                  pos: tuple[int, int] = (120, 120),
-                 colors: tuple[tuple[int, int, int], tuple[int, int, int]] = (RED_BGR, BLUE_BGR)) -> None:
+                 colors: tuple[tuple[int, int, int], tuple[int, int, int]] = (RED_BGR, BLUE_BGR),
+                 edit: bool = False) -> None:
         self.title = title
         self.colors = colors
+        self.with_edit = edit
+        self.edit = 0
         self.size = size
         self.pos = pos
         self.events: list[tuple[str, str, int, int, int]] = []
@@ -202,9 +213,15 @@ class TestWindow:
             r = w.RECT()
             user32.GetClientRect(hwnd, ctypes.byref(r))
             cw, ch = r.right - r.left, r.bottom - r.top
-            child = user32.CreateWindowExW(0, self._class, "child", WS_CHILD | WS_VISIBLE, cw // 2, 0,
-                                           cw - cw // 2, ch, hwnd, None, hinst, None)
-            self.child = int(child or 0)
+            if self.with_edit:
+                edit = user32.CreateWindowExW(0, "EDIT", "", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
+                                              cw // 2, 0, cw - cw // 2, ch, hwnd, None, hinst, None)
+                self.edit = int(edit or 0)
+                user32.SetFocus(edit)
+            else:
+                child = user32.CreateWindowExW(0, self._class, "child", WS_CHILD | WS_VISIBLE, cw // 2, 0,
+                                               cw - cw // 2, ch, hwnd, None, hinst, None)
+                self.child = int(child or 0)
             user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
             user32.InvalidateRect(hwnd, None, True)
         except BaseException as exc:  # noqa: BLE001
@@ -245,6 +262,15 @@ class TestWindow:
 
     def move(self, x: int, y: int) -> None:
         user32.SetWindowPos(self.hwnd, None, int(x), int(y), 0, 0, SWP_NOACTIVATE | SWP_NOZORDER | 0x0001)
+
+    def edit_text(self) -> str:
+        """The EDIT control's current text (edit=True windows)."""
+        if not self.edit:
+            raise RuntimeError("this test window has no edit control")
+        n = int(user32.SendMessageW(self.edit, WM_GETTEXTLENGTH, 0, 0))
+        buf = ctypes.create_unicode_buffer(n + 1)
+        user32.SendMessageW(self.edit, WM_GETTEXT, n + 1, ctypes.cast(buf, ctypes.c_void_p).value)
+        return buf.value
 
     def clear(self) -> None:
         with self._lock:

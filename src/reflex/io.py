@@ -29,7 +29,20 @@ from typing import (
 
 import numpy as np
 
-from reflex.actions import Action, Chord, Click, Key, KeyDown, KeyUp, Wait
+from reflex.actions import (
+    Action,
+    Chord,
+    Click,
+    Key,
+    KeyDown,
+    KeyUp,
+    MouseDown,
+    MouseUp,
+    Move,
+    Scroll,
+    TypeText,
+    Wait,
+)
 
 
 @runtime_checkable
@@ -155,7 +168,8 @@ class RecordingInputSink:
 class RecordingActionSink:
     """Full-capability recorder used by dry runs and the replay harness."""
 
-    capabilities = frozenset({"key", "key_down", "key_up", "chord", "click", "wait"})
+    capabilities = frozenset({"key", "key_down", "key_up", "chord", "click", "wait", "move", "mouse_down",
+                              "mouse_up", "scroll", "type"})
 
     def __init__(self, clock: Callable[[], float] | None = None) -> None:
         self._clock = clock or time.monotonic
@@ -176,6 +190,24 @@ class RecordingActionSink:
 
     def click(self, x: int, y: int, *, button: str = "left") -> bool:
         return self._rec("click", x=int(x), y=int(y), button=button)
+
+    def move(self, x: int, y: int) -> bool:
+        return self._rec("move", x=int(x), y=int(y))
+
+    def mouse_down(self, x: int, y: int, *, button: str = "left") -> bool:
+        return self._rec("mouse_down", x=int(x), y=int(y), button=button)
+
+    def mouse_up(self, x: int, y: int, *, button: str = "left") -> bool:
+        return self._rec("mouse_up", x=int(x), y=int(y), button=button)
+
+    def scroll(self, x: int, y: int, *, clicks: int = -1, horizontal: bool = False) -> bool:
+        return self._rec("scroll", x=int(x), y=int(y), clicks=int(clicks), horizontal=bool(horizontal))
+
+    def type_text(self, text: str, *, interval_ms: int = 0) -> bool:
+        return self._rec("type", text=str(text))
+
+    def release_all(self) -> None:
+        self._rec("release_all")
 
     @property
     def calls(self) -> list[tuple[str, int]]:
@@ -203,8 +235,10 @@ def sink_capabilities(sink: Any) -> frozenset[str]:
         caps.add("key_up")
     if {"key_down", "key_up"} <= caps:
         caps.add("chord")
-    if callable(getattr(sink, "click", None)):
-        caps.add("click")
+    for method, cap in (("click", "click"), ("move", "move"), ("mouse_down", "mouse_down"),
+                        ("mouse_up", "mouse_up"), ("scroll", "scroll"), ("type_text", "type")):
+        if callable(getattr(sink, method, None)):
+            caps.add(cap)
     return frozenset(caps)
 
 
@@ -245,6 +279,16 @@ class ActionExecutor:
             return ok
         if isinstance(action, Click):
             return bool(s.click(int(action.x), int(action.y), button=action.button))
+        if isinstance(action, Move):
+            return bool(s.move(int(action.x), int(action.y)))
+        if isinstance(action, MouseDown):
+            return bool(s.mouse_down(int(action.x), int(action.y), button=action.button))
+        if isinstance(action, MouseUp):
+            return bool(s.mouse_up(int(action.x), int(action.y), button=action.button))
+        if isinstance(action, Scroll):
+            return bool(s.scroll(int(action.x), int(action.y), clicks=int(action.clicks), horizontal=action.horizontal))
+        if isinstance(action, TypeText):
+            return bool(s.type_text(action.text, interval_ms=int(action.interval_ms)))
         raise ActionRefused(f"unknown action type {type(action).__name__}")
 
 

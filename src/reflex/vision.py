@@ -36,8 +36,26 @@ class Template:
         return (int(self.bgr.shape[1]), int(self.bgr.shape[0]))
 
 
+_CACHE: dict[tuple[str, float], Template] = {}
+
+
 def load_template(path: str | Path) -> Template:
+    """Load a template image (cached until the file changes)."""
     p = Path(path)
+    try:
+        key = (str(p.resolve()), p.stat().st_mtime)
+    except OSError:
+        raise FileNotFoundError(f"cannot read template image {p}") from None
+    hit = _CACHE.get(key)
+    if hit is None:
+        hit = _read_template(p)
+        if len(_CACHE) > 256:
+            _CACHE.clear()
+        _CACHE[key] = hit
+    return hit
+
+
+def _read_template(p: Path) -> Template:
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise FileNotFoundError(f"cannot read template image {p}")

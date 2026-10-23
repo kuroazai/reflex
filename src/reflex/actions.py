@@ -83,8 +83,63 @@ class Wait:
         return f"wait:{int(self.ms)}ms"
 
 
-Action = Key | KeyDown | KeyUp | Chord | Click | Wait
-ACTION_TYPES = (Key, KeyDown, KeyUp, Chord, Click, Wait)
+@dataclass(frozen=True)
+class Move:
+    x: int
+    y: int
+    capability = "move"
+
+    def label(self) -> str:
+        return f"move@{int(self.x)},{int(self.y)}"
+
+
+@dataclass(frozen=True)
+class MouseDown:
+    x: int
+    y: int
+    button: str = "left"
+    capability = "mouse_down"
+
+    def label(self) -> str:
+        return f"mouse_down:{self.button}@{int(self.x)},{int(self.y)}"
+
+
+@dataclass(frozen=True)
+class MouseUp:
+    x: int
+    y: int
+    button: str = "left"
+    capability = "mouse_up"
+
+    def label(self) -> str:
+        return f"mouse_up:{self.button}@{int(self.x)},{int(self.y)}"
+
+
+@dataclass(frozen=True)
+class Scroll:
+    x: int
+    y: int
+    clicks: int = -1
+    """Wheel notches: positive scrolls up, negative down."""
+    horizontal: bool = False
+    capability = "scroll"
+
+    def label(self) -> str:
+        return f"scroll:{int(self.clicks)}@{int(self.x)},{int(self.y)}"
+
+
+@dataclass(frozen=True)
+class TypeText:
+    text: str
+    interval_ms: int = 0
+    capability = "type"
+
+    def label(self) -> str:
+        return f"type:{self.text[:20]}"
+
+
+Action = Key | KeyDown | KeyUp | Chord | Click | Wait | Move | MouseDown | MouseUp | Scroll | TypeText
+ACTION_TYPES = (Key, KeyDown, KeyUp, Chord, Click, Wait, Move, MouseDown, MouseUp, Scroll, TypeText)
 
 
 def normalize(item: Any) -> Action:
@@ -111,6 +166,10 @@ def from_spec(value: Any) -> Action:
     {chord: [a, b]}             -> Chord
     {click: [x, y], button: r}  -> Click
     {wait: 120}                 -> Wait
+    {move: [x, y]}              -> Move
+    {mouse_down: [x, y]} / {mouse_up: [x, y]} -> MouseDown / MouseUp
+    {scroll: [x, y], clicks: -3} -> Scroll
+    {type: "hello"}             -> TypeText
     """
     if isinstance(value, str):
         return Key(value)
@@ -134,6 +193,19 @@ def from_spec(value: Any) -> Action:
         return Click(int(xy[0]), int(xy[1]), button=str(value.get("button", "left")))
     if "wait" in value:
         return Wait(int(value["wait"]))
+    for key, cls in (("move", Move), ("mouse_down", MouseDown), ("mouse_up", MouseUp), ("scroll", Scroll)):
+        if key in value:
+            xy = value[key]
+            if not (isinstance(xy, (list, tuple)) and len(xy) == 2):
+                raise ValueError(f"{key} needs [x, y], got {xy!r}")
+            if cls is Move:
+                return Move(int(xy[0]), int(xy[1]))
+            if cls is Scroll:
+                return Scroll(int(xy[0]), int(xy[1]), clicks=int(value.get("clicks", -1)),
+                              horizontal=bool(value.get("horizontal", False)))
+            return cls(int(xy[0]), int(xy[1]), button=str(value.get("button", "left")))
+    if "type" in value:
+        return TypeText(str(value["type"]), interval_ms=int(value.get("interval_ms", 0)))
     raise ValueError(f"unknown action form {value!r}")
 
 

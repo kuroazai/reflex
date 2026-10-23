@@ -189,6 +189,34 @@ def test_postmessage_release_all_lets_go_of_held_keys(tw):
     assert "keyup" in kinds and "lbuttonup" in kinds
 
 
+def test_postmessage_types_into_a_real_edit_control_in_the_background():
+    with TestWindow(title="reflex-edit", edit=True) as tw:
+        sink = PostMessageSink(tw.hwnd)
+        assert sink.key_hwnd == tw.edit  # found the focused control, not the frame
+        sink.type_text("hello reflex\nline 2")
+        deadline = time.monotonic() + 2
+        while "line 2" not in tw.edit_text() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert tw.edit_text().replace("\r\n", "\n") == "hello reflex\nline 2"
+
+
+def test_capture_then_ocr_reads_what_was_typed():
+    from reflex.ocr import read_text
+
+    try:
+        from reflex.ocr import get_engine
+
+        get_engine()
+    except Exception:  # noqa: BLE001
+        pytest.skip("no Windows OCR")
+    with TestWindow(title="reflex-edit-ocr", edit=True, size=(700, 200)) as tw:
+        PostMessageSink(tw.hwnd).type_text("SCORE 1234")
+        time.sleep(0.2)
+        frame = WindowSource(tw.hwnd).grab()
+        res = read_text(frame, (frame.shape[1] // 2, 0, frame.shape[1] // 2, frame.shape[0]))
+        assert "1234" in res.text
+
+
 # --------------------------------------------------------------------------- SendInput
 
 

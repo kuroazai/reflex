@@ -148,6 +148,20 @@ class INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
 
 
+class GUITHREADINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("flags", wintypes.DWORD),
+        ("hwndActive", HWND),
+        ("hwndFocus", HWND),
+        ("hwndCapture", HWND),
+        ("hwndMenuOwner", HWND),
+        ("hwndMoveSize", HWND),
+        ("hwndCaret", HWND),
+        ("rcCaret", RECT),
+    ]
+
+
 WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, HWND, wintypes.LPARAM)
 
 # --------------------------------------------------------------------------- signatures
@@ -174,6 +188,7 @@ _sig(user32.MapWindowPoints, ctypes.c_int, HWND, HWND, ctypes.POINTER(POINT), wi
 _sig(user32.ChildWindowFromPointEx, HWND, HWND, POINT, wintypes.UINT)
 _sig(user32.GetWindowThreadProcessId, wintypes.DWORD, HWND, ctypes.POINTER(wintypes.DWORD))
 _sig(user32.GetForegroundWindow, HWND)
+_sig(user32.GetGUIThreadInfo, wintypes.BOOL, wintypes.DWORD, ctypes.POINTER(GUITHREADINFO))
 _sig(user32.SetForegroundWindow, wintypes.BOOL, HWND)
 _sig(user32.GetAncestor, HWND, HWND, wintypes.UINT)
 _sig(user32.GetDC, HDC, HWND)

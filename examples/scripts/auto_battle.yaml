@@ -1,0 +1,66 @@
+# A farming loop for a turn-based game, showing most of what a script can do.
+#
+#   reflex validate examples/scripts/auto_battle.yaml
+#   reflex run examples/scripts/auto_battle.yaml --title "My Game" --dry-run
+#
+# Coordinates and colours are placeholders: capture your game with
+#   reflex capture --title "My Game" -o shot.png
+# and read positions off the PNG.
+
+name: auto battle
+description: Start a battle, attack until it ends, collect, repeat. Heal when HP is low.
+
+target:
+  window: {title: "My Game"}
+  input: postmessage        # background input: keep using your PC while it runs
+
+timeout_s: 7200             # never runs longer than two hours
+humanize:
+  jitter_ms: 40             # small random delay on every input
+  click_jitter_px: 2        # don't click the exact same pixel every time
+
+vars:
+  battles: 0
+  target_battles: 20
+
+# Watchers run during every wait, whatever step the script is on.
+watchers:
+  - id: close_popup
+    kind: on_match
+    params:
+      when: {predicate: text, region: [300, 200, 400, 60], contains: "Daily bonus"}
+      do: [{click: [680, 215]}]
+
+functions:
+  heal_if_low:
+    - read_text: [20, 20, 160, 30]   # the "HP 340/1200" label
+      as: hp
+      number: true
+    - if: "${hp is not None and hp < 300}"
+      then:
+        - log: "HP ${hp}: healing"
+        - press: h
+        - wait: 800
+
+steps:
+  - repeat: {while: "${battles < target_battles}"}
+    steps:
+      - name: start battle
+        click: [640, 620]
+      - wait_for: {color_search: {rgb: [200, 30, 30], region: [0, 0, 1280, 80], tolerance: 20}}
+        timeout_s: 15
+        on_timeout: [{log: "battle did not start; retrying"}, continue]
+
+      - repeat: {until: {text: {region: [480, 300, 320, 80], contains: "Victory"}}, max: 60}
+        steps:
+          - call: heal_if_low
+          - press: space          # attack
+          - wait: 1200
+            jitter_ms: 300
+
+      - click: {text: {region: [480, 500, 320, 80], contains: "Collect"}}
+        optional: true
+      - set: {battles: "${battles + 1}"}
+      - log: "battle ${battles}/${target_battles} done"
+
+  - log: "finished ${battles} battles"
