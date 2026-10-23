@@ -111,10 +111,24 @@ def _blit_from_screen(buf: _DibBuffer, x: int, y: int, w: int, h: int) -> np.nda
     try:
         buf.ensure(screen_dc, w, h)
         if not gdi32.BitBlt(buf.mem_dc, 0, 0, w, h, screen_dc, x, y, SRCCOPY | CAPTUREBLT):
+            if not screen_capture_available():
+                raise CaptureError(
+                    "the screen is locked or showing a secure desktop (lock screen, UAC prompt), so it "
+                    "cannot be copied. WindowSource with method='printwindow' keeps working while locked."
+                )
             raise CaptureError(f"BitBlt from screen failed at {(x, y, w, h)}")
         return buf.to_bgr()
     finally:
         user32.ReleaseDC(None, screen_dc)
+
+
+def screen_capture_available() -> bool:
+    """False while the workstation is locked or a secure desktop is up."""
+    desk = user32.OpenInputDesktop(0, False, 0x0100)  # DESKTOP_READOBJECTS
+    if not desk:
+        return False
+    user32.CloseDesktop(desk)
+    return True
 
 
 def virtual_screen() -> tuple[int, int, int, int]:

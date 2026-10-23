@@ -188,6 +188,8 @@ _sig(user32.GetAsyncKeyState, ctypes.c_short, ctypes.c_int)
 _sig(user32.GetSystemMetrics, ctypes.c_int, ctypes.c_int)
 _sig(user32.SetCursorPos, wintypes.BOOL, ctypes.c_int, ctypes.c_int)
 _sig(user32.GetCursorPos, wintypes.BOOL, ctypes.POINTER(POINT))
+_sig(user32.OpenInputDesktop, HANDLE, wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+_sig(user32.CloseDesktop, wintypes.BOOL, HANDLE)
 
 _sig(gdi32.CreateCompatibleDC, HDC, HDC)
 _sig(gdi32.CreateDIBSection, HBITMAP, HDC, ctypes.POINTER(BITMAPINFO), wintypes.UINT,

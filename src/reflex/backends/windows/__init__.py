@@ -12,6 +12,7 @@ from reflex.backends.windows.capture import (
     ScreenSource,
     WindowSource,
     benchmark,
+    screen_capture_available,
     virtual_screen,
 )
 from reflex.backends.windows.input import PostMessageSink, SendInputSink
@@ -44,5 +45,6 @@ __all__ = [
     "is_foreground",
     "known_keys",
     "list_windows",
+    "screen_capture_available",
     "virtual_screen",
 ]

@@ -328,7 +328,7 @@ def color_armed_button(
 ) -> TriggerSpec:
     """Press a button as soon as a color predicate becomes true.
 
-    The Blue Eye Macro 'pixel-pattern → input' classic. Use for hard
+    The classic 'pixel pattern → input' macro. Use for hard
     real-time reflexes — block on red flash, dodge on yellow telegraph,
     interact on prompt-glow appearance.
     """

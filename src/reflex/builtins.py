@@ -9,6 +9,7 @@ from typing import Any
 from reflex import conditions as C
 from reflex import expect as E
 from reflex import recipes as R
+from reflex import vision as V
 from reflex import watchdog as W
 from reflex.core import FrameView, Predicate
 from reflex.io import RecordingActionSink, RecordingInputSink, StaticFrameSource
@@ -148,6 +149,27 @@ def _template_adapter(params: dict[str, Any], builder: Any) -> dict[str, Any]:
     return out
 
 
+def _image_adapter(params: dict[str, Any], builder: Any) -> dict[str, Any]:
+    from reflex.vision import load_template
+
+    out = dict(params)
+    paths = out.pop("template_paths", None)
+    single = out.pop("template", None)
+    if single is not None:
+        paths = [single] if paths is None else [*([paths] if isinstance(paths, str) else paths), single]
+    if paths is not None:
+        if isinstance(paths, str):
+            paths = [paths]
+        tpls = []
+        for raw in paths:
+            p = Path(str(raw))
+            if not p.is_absolute() and getattr(builder, "base_dir", None) is not None:
+                p = Path(builder.base_dir) / p
+            tpls.append(load_template(p))
+        out["templates"] = tpls
+    return out
+
+
 def register_all(reg) -> None:
     P = "predicate"
     reg.register(P, "sprite_blob", C.sprite_blob, replace=True)
@@ -165,6 +187,11 @@ def register_all(reg) -> None:
                  doc="Context gate: view.extras[key] is one of values.")
     reg.register(P, "always", C.always, replace=True)
     reg.register(P, "track_locked_to", C.track_locked_to, replace=True)
+    reg.register(P, "image", V.image, adapter=_image_adapter, extra_params=("template_paths", "template"),
+                 replace=True)
+    reg.register(P, "color_search", V.color_search, replace=True)
+    reg.register(P, "text", V.text, replace=True)
+    reg.register(P, "stable", V.stable, replace=True)
     reg.register(P, "any_of", any_of, replace=True)
     reg.register(P, "all_of", all_of, replace=True)
     reg.register(P, "not", not_, replace=True)

@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 
 from reflex.core import FrameView, Match, Predicate, Region
+from reflex.vision import match_scores
 
 
 @dataclass(frozen=True)
@@ -170,8 +171,9 @@ def template_match(
 
     Flat (single-colour) templates have zero variance, which makes
     TM_CCOEFF_NORMED return 1.0 *everywhere* — a guaranteed false positive.
-    Those templates are matched with TM_SQDIFF_NORMED instead (score =
-    1 - sqdiff) so a solid-colour button crop only matches that colour.
+    Those are scored by rms colour difference instead (see
+    reflex.vision.match_scores), so a solid-colour button crop only matches
+    that colour.
     """
     if not templates:
         raise ValueError("template_match requires at least one template")
@@ -203,7 +205,10 @@ def template_match(
         for i, tpl in enumerate(tpl_list):
             if haystack.shape[0] < tpl.shape[0] or haystack.shape[1] < tpl.shape[1]:
                 continue
-            score, loc = _score(cv2.matchTemplate(haystack, tpl, methods[i]), methods[i])
+            if methods[i] == cv2.TM_SQDIFF_NORMED and method == cv2.TM_CCOEFF_NORMED:
+                score, loc = _score(match_scores(haystack, tpl), cv2.TM_CCOEFF_NORMED)
+            else:
+                score, loc = _score(cv2.matchTemplate(haystack, tpl, methods[i]), methods[i])
             if score > best_score:
                 best_score = score
                 best_loc = (loc[0] + clipped.x, loc[1] + clipped.y)
@@ -234,8 +239,8 @@ def color_at(
 ) -> Predicate:
     """Single-pixel HSV-range check at exact (x, y).
 
-    The lightweight Blue Eye Macro analogue: deterministic, sub-millisecond,
-    perfect for static HUD bar tests. Use for stable indicators where
+    The classic pixel check: deterministic, sub-millisecond, right for
+    static HUD bar tests. Use for stable indicators where
     the band you care about never moves.
     """
     lo = np.array(hsv_lo, dtype=np.uint8)

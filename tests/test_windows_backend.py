@@ -27,9 +27,15 @@ if sys.platform == "win32":
         WindowSource,
         find_window,
         list_windows,
+        screen_capture_available,
     )
     from reflex.backends.windows.keys import key_lparam, resolve, vk_for
     from reflex.backends.windows.testwindow import BLUE_BGR, RED_BGR, TestWindow
+
+
+def _needs_screen():
+    if not screen_capture_available():
+        pytest.skip("screen is locked: desktop copies are refused until it is unlocked")
 
 
 @pytest.fixture
@@ -95,6 +101,7 @@ def test_window_capture_is_client_area_with_child(tw):
 
 
 def test_window_capture_works_while_covered(tw):
+    _needs_screen()
     green, yellow = (40, 200, 40), (40, 220, 220)
     with TestWindow(title="reflex-cover", pos=tw.pos, size=tw.size, colors=(green, yellow)):
         x, y, cw, ch = find_window(hwnd=tw.hwnd).client
@@ -131,6 +138,7 @@ def test_closed_window_raises(tw):
 
 
 def test_screen_capture_region_shape():
+    _needs_screen()
     frame = ScreenSource((0, 0, 64, 48)).grab()
     assert frame.shape == (48, 64, 3) and frame.dtype == np.uint8
 
