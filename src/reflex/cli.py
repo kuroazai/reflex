@@ -363,6 +363,22 @@ def schema_doc() -> dict:
     }
 
 
+def cmd_record(args: argparse.Namespace) -> int:
+    from reflex.backends.windows import find_window
+    from reflex.recorder import record_to_file
+
+    find = {k: v for k, v in (("title", args.title), ("process", args.process), ("hwnd", args.hwnd)) if v}
+    if not find:
+        print("error: say which window to record: --title, --process or --hwnd (see reflex windows)",
+              file=sys.stderr)
+        return 2
+    window = find_window(**find)
+    script = record_to_file(window, args.output, images=args.images, max_s=args.max, crop_px=args.crop)
+    n = len(script["steps"])
+    print(f"wrote {n} steps to {args.output}. Try it: reflex run {args.output} --dry-run")
+    return 0
+
+
 def cmd_schema(args: argparse.Namespace) -> int:
     doc = schema_doc()
     if args.json:
@@ -485,6 +501,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("-o", "--output", default="capture.png")
     s.add_argument("--region", help="crop x,y,w,h (frame pixels), handy for cutting a template")
     s.set_defaults(fn=cmd_capture)
+
+    s = sub.add_parser("record", help="record your input in a window into a script (stop: ctrl+alt+end)")
+    target_args(s)
+    s.add_argument("-o", "--output", default="recorded.yaml")
+    s.add_argument("--images", action="store_true",
+                   help="save what was under each click and click that image, not a fixed pixel")
+    s.add_argument("--crop", type=int, default=48, help="size in pixels of each click image")
+    s.add_argument("--max", type=parse_duration, default=3600.0, help="stop recording after this long")
+    s.set_defaults(fn=cmd_record)
 
     s = sub.add_parser("schema", help="every script step and predicate (use --json for agents)")
     s.add_argument("--json", action="store_true")
