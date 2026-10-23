@@ -333,6 +333,9 @@ class _Compiler:
         if "when" in raw:
             st.opts["when"] = self.condition(raw["when"], f"{path}.when")
         self._compile_verb(st, raw)
+        # Expressions anywhere else in the step (wait: "${...}", timeout_s, hold_ms, ...).
+        nested = {"then", "else", "steps", "on_timeout", "when"}
+        self.check_exprs_in({k: v for k, v in raw.items() if k not in nested}, path)
         return st
 
     def _compile_verb(self, st: Step, raw: dict) -> None:

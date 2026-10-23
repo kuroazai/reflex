@@ -103,7 +103,7 @@ FAIL farm.yaml
      farm.yaml: steps[3]<start battle>.clik: a step needs exactly one action, found ['clik'] (did you mean 'click'?)
 ```
 
-Key names, template files, expressions and function calls are all checked. Runs are bounded too: a script stops at `timeout_s` (default one hour), and every `wait_for` has its own timeout.
+The validator catches unknown key names (in steps and watcher actions), missing template files, malformed expressions and calls to undefined functions. Values built from `${...}` variables can only be checked when they run. Runs are bounded too: a script stops at `timeout_s` (default one hour), and every `wait_for` has its own timeout.
 
 `humanize: {jitter_ms: 40, click_jitter_px: 2}` adds small random delays and click offsets. [examples/scripts/auto_battle.yaml](examples/scripts/auto_battle.yaml) uses most of the above.
 

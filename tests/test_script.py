@@ -363,6 +363,8 @@ def test_image_shorthand_with_template_file(tmp_path):
     ("timeout_s: 0\nsteps: []\n", "never run unbounded"),
     ("stepz: []\n", "unknown top-level key"),
     ("target: {input: magic}\nsteps: []\n", "input is postmessage"),
+    ("steps:\n  - wait: \"${1 +}\"\n", "bad expression"),
+    ("steps:\n  - press: a\n    times: \"${2 *}\"\n", "bad expression"),
 ])
 def test_validation_errors_are_located(src, needle, tmp_path):
     with pytest.raises(ScriptError) as exc:
@@ -412,3 +414,36 @@ def test_example_scripts_load():
     assert scripts
     for path in scripts:
         load_script(path, check_keys=False)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="key names resolve through the Windows layout")
+@pytest.mark.parametrize("watcher_do", ["[notakey]", "[{key: notakey}]", "[{chord: [ctrl, notakey]}]", "[{down: notakey}]"])
+def test_unknown_keys_in_watcher_actions_are_caught_at_load(watcher_do):
+    src = f"""
+watchers:
+  - id: w
+    kind: on_match
+    params:
+      when: {{predicate: always}}
+      do: {watcher_do}
+steps:
+  - wait: 10
+"""
+    with pytest.raises(ScriptError, match="unknown key 'notakey'"):
+        build_script(yaml.safe_load(src))
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="key names resolve through the Windows layout")
+def test_unknown_button_param_is_caught_at_load():
+    from reflex.dsl import Builder, DSLError, build_macro_set
+
+    raw = yaml.safe_load("""
+macro:
+  id: d
+  kind: dialog_advance_loop
+  params:
+    dialog: {predicate: always}
+    advance_button: notakey
+""")
+    with pytest.raises(DSLError, match="unknown key 'notakey'"):
+        build_macro_set(raw, builder=Builder())

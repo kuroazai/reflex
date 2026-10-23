@@ -55,6 +55,21 @@ class DSLError(ValueError):
     pass
 
 
+def check_key_names() -> bool:
+    """Key names resolve through the Windows keyboard layout, so they are checked on Windows."""
+    import sys
+
+    return sys.platform == "win32"
+
+
+def _action_keys(act: Any) -> list[str]:
+    if isinstance(act, (_actions.Key, _actions.KeyDown, _actions.KeyUp)):
+        return [act.name]
+    if isinstance(act, _actions.Chord):
+        return list(act.keys)
+    return []
+
+
 # Spec-level knobs a macro may set on top of whatever its recipe builds.
 SPEC_KNOBS = (
     "priority",
@@ -150,12 +165,43 @@ class Builder:
         if (pname.endswith("_action") or "Callable" in ann) and isinstance(value, (list, tuple, str)):
             seq = [value] if isinstance(value, str) else value
             try:
-                return _actions.press_keys([_actions.from_spec(a) for a in seq])
+                built = [_actions.from_spec(a) for a in seq]
             except ValueError as exc:
                 raise self.err(path, str(exc)) from None
+            for i, act in enumerate(built):
+                for key in _action_keys(act):
+                    self.check_key(key, f"{path}[{i}]")
+            return _actions.press_keys(built)
+        if (pname == "button" or pname.endswith("_button")) and isinstance(value, str):
+            self.check_key(value, path)
+        if pname == "do" and isinstance(value, (list, tuple, str)):
+            # Recipes such as on_match build their own actions from `do`; check them here
+            # so a typo fails at load time. The value itself is passed through unchanged.
+            for i, raw_action in enumerate([value] if isinstance(value, str) else value):
+                if isinstance(raw_action, (str, dict)):
+                    try:
+                        act = _actions.from_spec(raw_action)
+                    except ValueError as exc:
+                        raise self.err(f"{path}[{i}]", str(exc)) from None
+                    for key in _action_keys(act):
+                        self.check_key(key, f"{path}[{i}]")
         if isinstance(value, list) and ("uple" in ann or ann == ""):
             return tuple(tuple(v) if isinstance(v, list) else v for v in value)
         return value
+
+    def check_key(self, key: str, path: str) -> None:
+        """Unknown key names fail at load time, not on the first fire (Windows only)."""
+        if not check_key_names():
+            return
+        from reflex.backends.gamepad import is_pad
+        from reflex.backends.windows.keys import UnknownKey, vk_for
+
+        if is_pad(key):
+            return
+        try:
+            vk_for(key)
+        except UnknownKey as exc:
+            raise self.err(path, str(exc)) from None
 
     def region(self, v: Any, path: str) -> Region:
         if isinstance(v, Region):
