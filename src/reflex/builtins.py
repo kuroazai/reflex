@@ -62,6 +62,58 @@ def press_recording_sink() -> RecordingInputSink:
     return RecordingInputSink()
 
 
+def window_source(
+    *,
+    title: str | None = None,
+    process: str | None = None,
+    class_name: str | None = None,
+    hwnd: int | None = None,
+    method: str = "auto",
+):
+    """One window's client area, captured even while it is covered (Windows)."""
+    from reflex.backends.windows import WindowSource
+
+    return WindowSource(hwnd, method=method, **_find(title, process, class_name))  # type: ignore[arg-type]
+
+
+def screen_source(*, region: Sequence[int] | None = None):
+    """A fixed screen rectangle [x, y, w, h], or every monitor (Windows)."""
+    from reflex.backends.windows import ScreenSource
+
+    return ScreenSource(tuple(region) if region is not None else None)  # type: ignore[arg-type]
+
+
+def postmessage_sink(
+    *,
+    title: str | None = None,
+    process: str | None = None,
+    class_name: str | None = None,
+    hwnd: int | None = None,
+):
+    """Background input posted to one window: no focus, no cursor movement (Windows)."""
+    from reflex.backends.windows import PostMessageSink
+
+    return PostMessageSink(hwnd, **_find(title, process, class_name))
+
+
+def sendinput_sink(
+    *,
+    title: str | None = None,
+    process: str | None = None,
+    class_name: str | None = None,
+    hwnd: int | None = None,
+    require_focus: bool = True,
+):
+    """Real keyboard and mouse input to the focused window (Windows)."""
+    from reflex.backends.windows import SendInputSink
+
+    return SendInputSink(hwnd, require_focus=require_focus, **_find(title, process, class_name))
+
+
+def _find(title: str | None, process: str | None, class_name: str | None) -> dict[str, str]:
+    return {k: v for k, v in (("title", title), ("process", process), ("class_name", class_name)) if v}
+
+
 def image_source(*, path: str) -> StaticFrameSource:
     """A single image file as a frame source."""
     import cv2
@@ -144,4 +196,8 @@ def register_all(reg) -> None:
     reg.register("sink", "recording", recording_sink, replace=True)
     reg.register("sink", "press_recording", press_recording_sink, replace=True)
     reg.register("source", "image", image_source, replace=True)
+    reg.register("source", "window", window_source, replace=True)
+    reg.register("source", "screen", screen_source, replace=True)
+    reg.register("sink", "postmessage", postmessage_sink, replace=True)
+    reg.register("sink", "sendinput", sendinput_sink, replace=True)
     reg.register("context", "static", static_context, replace=True)
