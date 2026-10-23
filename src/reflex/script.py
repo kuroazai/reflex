@@ -119,6 +119,8 @@ VERBS: dict[str, dict[str, Any]] = {
     "screenshot": {"fields": {"region"}, "doc": "Save the current frame (or a region) as PNG: screenshot: shots/a.png"},
     "focus": {"fields": set(), "doc": "Bring the target window to the front (needed by sendinput). focus: true"},
     "watcher": {"fields": set(), "doc": "Turn a watcher on or off: watcher: {enable: id} | {disable: id}"},
+    "stick": {"fields": {"x", "y", "hold_ms"},
+              "doc": "Gamepad stick (target gamepad: true): stick: left with x/y in [-1, 1]; recentres after hold_ms."},
 }
 
 TOP_KEYS = {"name", "description", "target", "vars", "timeout_s", "poll_ms", "hotkeys", "humanize", "watchers",
@@ -264,6 +266,10 @@ class _Compiler:
     def check_key(self, key: Any, path: str) -> None:
         if not self.check_keys or has_refs(key):
             return
+        from reflex.backends.gamepad import is_pad
+
+        if is_pad(str(key)):
+            return
         from reflex.backends.windows.keys import UnknownKey, vk_for
 
         try:
@@ -405,6 +411,11 @@ class _Compiler:
                 raise self.err(path, "watcher: {enable: id} or {disable: id}")
         elif verb in ("log", "stop", "fail", "type"):
             self.check_exprs_in(v, path)
+        elif verb == "stick":
+            if v not in ("left", "right") and not has_refs(v):
+                raise self.err(path, "stick is left or right")
+            if "x" not in raw and "y" not in raw:
+                raise self.err(path, "stick needs x and/or y in [-1, 1]")
 
 
 def _check_keys_default() -> bool:
@@ -452,7 +463,8 @@ def build_script(
     target = raw.get("target") or {}
     if not isinstance(target, dict):
         raise comp.err("target", "target is a mapping, e.g. {window: {title: ...}, input: postmessage}")
-    t_unknown = sorted(set(target) - {"window", "screen", "capture", "input", "all_windows", "require_focus"})
+    t_unknown = sorted(set(target) - {"window", "screen", "capture", "input", "all_windows", "require_focus",
+                                      "gamepad"})
     if t_unknown:
         raise comp.err("target", f"unknown key(s) {t_unknown}")
     if target.get("input") not in (None, "postmessage", "sendinput"):
@@ -1080,6 +1092,17 @@ class ScriptRunner:
         self._focus()
         self.sleep(0.15)
 
+    def _do_stick(self, st: Step) -> None:
+        self._need("stick", st.path)
+        side = str(self._r(st.value, st.path))
+        x = float(self._r(st.opts.get("x", 0), st.path))
+        y = float(self._r(st.opts.get("y", 0), st.path))
+        hold = int(self._r(st.opts.get("hold_ms", 200), st.path))
+        self._input(lambda: self.sink.stick(side, x, y), st.path, f"stick {side}")
+        if hold > 0:
+            self._pause_ms(hold, st.path)
+            self.sink.stick(side, 0, 0)
+
     def _do_watcher(self, st: Step) -> None:
         if self._rt is None:
             raise StepFailed(st.path, "this script has no watchers")
@@ -1116,9 +1139,20 @@ def open_targets(
     One per matching window when all_windows is true, so a script can drive
     several game clients at once.
     """
-    from reflex.io import RecordingActionSink
 
     t = {**script.target, **{k: v for k, v in (overrides or {}).items() if v is not None}}
+    targets = _open(t, script, dry_run=dry_run, source=source)
+    if t.get("gamepad") and not dry_run:
+        from reflex.backends.gamepad import GamepadSink
+
+        for tg in targets:
+            tg.sink = GamepadSink(tg.sink)
+    return targets
+
+
+def _open(t: dict[str, Any], script: Script, *, dry_run: bool, source: Any) -> list[Target]:
+    from reflex.io import RecordingActionSink
+
     if source is not None:
         return [Target("main", source, RecordingActionSink() if dry_run else _sink_for(t, None), {}, None)]
     if "screen" in t:

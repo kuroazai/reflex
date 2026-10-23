@@ -169,7 +169,7 @@ class RecordingActionSink:
     """Full-capability recorder used by dry runs and the replay harness."""
 
     capabilities = frozenset({"key", "key_down", "key_up", "chord", "click", "wait", "move", "mouse_down",
-                              "mouse_up", "scroll", "type"})
+                              "mouse_up", "scroll", "type", "stick"})
 
     def __init__(self, clock: Callable[[], float] | None = None) -> None:
         self._clock = clock or time.monotonic
@@ -206,6 +206,9 @@ class RecordingActionSink:
     def type_text(self, text: str, *, interval_ms: int = 0) -> bool:
         return self._rec("type", text=str(text))
 
+    def stick(self, side: str, x: float, y: float) -> bool:
+        return self._rec("stick", side=side, x=float(x), y=float(y))
+
     def release_all(self) -> None:
         self._rec("release_all")
 
@@ -236,7 +239,8 @@ def sink_capabilities(sink: Any) -> frozenset[str]:
     if {"key_down", "key_up"} <= caps:
         caps.add("chord")
     for method, cap in (("click", "click"), ("move", "move"), ("mouse_down", "mouse_down"),
-                        ("mouse_up", "mouse_up"), ("scroll", "scroll"), ("type_text", "type")):
+                        ("mouse_up", "mouse_up"), ("scroll", "scroll"), ("type_text", "type"),
+                        ("stick", "stick")):
         if callable(getattr(sink, method, None)):
             caps.add(cap)
     return frozenset(caps)
